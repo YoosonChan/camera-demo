@@ -5,12 +5,16 @@ const videoRef = ref<HTMLVideoElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const photoRef = ref<string>('')
 const stream = ref<MediaStream | null>(null)
+const isFrontCamera = ref(true)
 
 // 启动摄像头
 const startCamera = async () => {
   try {
+    if (stream.value) {
+      stream.value.getTracks().forEach(track => track.stop())
+    }
     stream.value = await navigator.mediaDevices.getUserMedia({
-      video: true,
+      video: { facingMode: isFrontCamera.value ? 'user' : 'environment' },
       audio: false
     })
     if (videoRef.value) {
@@ -34,6 +38,12 @@ const takePhoto = () => {
   }
 }
 
+// 切换摄像头
+const switchCamera = () => {
+  isFrontCamera.value = !isFrontCamera.value
+  startCamera()
+}
+
 // 组件挂载时启动摄像头
 onMounted(() => {
   startCamera()
@@ -54,7 +64,12 @@ onUnmounted(() => {
       <canvas ref="canvasRef" style="display: none"></canvas>
     </div>
 
-    <button class="capture-btn" @click="takePhoto">拍照</button>
+    <div class="button-container">
+      <button class="capture-btn" @click="takePhoto">拍照</button>
+      <button class="switch-btn" @click="switchCamera">
+        {{ isFrontCamera ? '切换到后置摄像头' : '切换到前置摄像头' }}
+      </button>
+    </div>
 
     <div v-if="photoRef" class="photo-container">
       <img :src="photoRef" alt="拍摄的照片" />
@@ -79,6 +94,12 @@ video {
   border-radius: 8px;
 }
 
+.button-container {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
 .capture-btn {
   padding: 10px 20px;
   font-size: 16px;
@@ -92,6 +113,21 @@ video {
 
 .capture-btn:hover {
   background-color: #45a049;
+}
+
+.switch-btn {
+  padding: 10px 20px;
+  font-size: 16px;
+  background-color: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 10px 0;
+}
+
+.switch-btn:hover {
+  background-color: #1976D2;
 }
 
 .photo-container {
