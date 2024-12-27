@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import jsQR from 'jsqr'
 
 const videoRef = ref<HTMLVideoElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-const photoRef = ref<string>('')
 const stream = ref<MediaStream | null>(null)
 const isFrontCamera = ref(true)
+const qrResult = ref('')
+const scanInterval = ref<number | null>(null)
 
 // 启动摄像头
 const startCamera = async () => {
@@ -19,28 +21,47 @@ const startCamera = async () => {
     })
     if (videoRef.value) {
       videoRef.value.srcObject = stream.value
+      // 开始实时扫描
+      startQRScan()
     }
   } catch (err) {
     console.error('无法访问摄像头:', err)
   }
 }
 
-// 拍照
-const takePhoto = () => {
+// 实时扫描二维码
+const scanQRCode = () => {
   if (videoRef.value && canvasRef.value) {
     const context = canvasRef.value.getContext('2d')
-    if (context) {
+    if (context && videoRef.value.videoWidth > 0) {
       canvasRef.value.width = videoRef.value.videoWidth
       canvasRef.value.height = videoRef.value.videoHeight
       context.drawImage(videoRef.value, 0, 0, canvasRef.value.width, canvasRef.value.height)
-      photoRef.value = canvasRef.value.toDataURL('image/png')
+
+      const imageData = context.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height)
+      const code = jsQR(imageData.data, imageData.width, imageData.height)
+
+      if (code) {
+        qrResult.value = code.data
+      }
     }
   }
+}
+
+// 开始扫描
+const startQRScan = () => {
+  if (scanInterval.value) {
+    clearInterval(scanInterval.value)
+  }
+  scanInterval.value = setInterval(scanQRCode, 500) // 每500ms扫描一次
 }
 
 // 切换摄像头
 const switchCamera = () => {
   isFrontCamera.value = !isFrontCamera.value
+  if (scanInterval.value) {
+    clearInterval(scanInterval.value)
+  }
   startCamera()
 }
 
@@ -49,10 +70,13 @@ onMounted(() => {
   startCamera()
 })
 
-// 组件卸载时关闭摄像头
+// 组件卸载时清理
 onUnmounted(() => {
   if (stream.value) {
     stream.value.getTracks().forEach(track => track.stop())
+  }
+  if (scanInterval.value) {
+    clearInterval(scanInterval.value)
   }
 })
 </script>
@@ -65,14 +89,13 @@ onUnmounted(() => {
     </div>
 
     <div class="button-container">
-      <button class="capture-btn" @click="takePhoto">拍照</button>
       <button class="switch-btn" @click="switchCamera">
         {{ isFrontCamera ? '切换到后置摄像头' : '切换到前置摄像头' }}
       </button>
     </div>
 
-    <div v-if="photoRef" class="photo-container">
-      <img :src="photoRef" alt="拍摄的照片" />
+    <div v-if="qrResult" class="qr-result">
+      <p>二维码内容: {{ qrResult }}</p>
     </div>
   </div>
 </template>
@@ -100,21 +123,6 @@ video {
   justify-content: center;
 }
 
-.capture-btn {
-  padding: 10px 20px;
-  font-size: 16px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  margin: 10px 0;
-}
-
-.capture-btn:hover {
-  background-color: #45a049;
-}
-
 .switch-btn {
   padding: 10px 20px;
   font-size: 16px;
@@ -130,13 +138,13 @@ video {
   background-color: #1976D2;
 }
 
-.photo-container {
+.qr-result {
   margin-top: 20px;
 }
 
-.photo-container img {
-  max-width: 100%;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.qr-result p {
+  padding: 10px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
 }
 </style>
