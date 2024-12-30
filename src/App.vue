@@ -3,9 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import jsQR from 'jsqr'
 
 const videoRef = ref<HTMLVideoElement | null>(null)
-const canvasRef = ref<HTMLCanvasElement | null>(null)
 const stream = ref<MediaStream | null>(null)
-const isFrontCamera = ref(true)
 const qrResult = ref('')
 const scanInterval = ref<number | null>(null)
 
@@ -15,10 +13,21 @@ const startCamera = async () => {
     if (stream.value) {
       stream.value.getTracks().forEach(track => track.stop())
     }
-    stream.value = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: isFrontCamera.value ? 'user' : 'environment' },
-      audio: false
-    })
+    // 先尝试使用后置摄像头
+    try {
+      stream.value = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false
+      })
+    } catch (err) {
+      // 如果后置摄像头失败，尝试使用前置摄像头
+      console.log('后置摄像头启动失败，尝试前置摄像头:', err)
+      stream.value = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false
+      })
+    }
+
     if (videoRef.value) {
       videoRef.value.srcObject = stream.value
       // 开始实时扫描
@@ -31,16 +40,15 @@ const startCamera = async () => {
 
 // 实时扫描二维码
 const scanQRCode = () => {
-  if (videoRef.value && canvasRef.value) {
-    const context = canvasRef.value.getContext('2d')
-    if (context && videoRef.value.videoWidth > 0) {
-      canvasRef.value.width = videoRef.value.videoWidth
-      canvasRef.value.height = videoRef.value.videoHeight
-      context.drawImage(videoRef.value, 0, 0, canvasRef.value.width, canvasRef.value.height)
-
-      const imageData = context.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height)
+  if (videoRef.value && videoRef.value.videoWidth > 0) {
+    const canvas = document.createElement('canvas')
+    canvas.width = videoRef.value.videoWidth
+    canvas.height = videoRef.value.videoHeight
+    const context = canvas.getContext('2d')
+    if (context) {
+      context.drawImage(videoRef.value, 0, 0, canvas.width, canvas.height)
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
       const code = jsQR(imageData.data, imageData.width, imageData.height)
-
       if (code) {
         qrResult.value = code.data
       }
@@ -54,15 +62,6 @@ const startQRScan = () => {
     clearInterval(scanInterval.value)
   }
   scanInterval.value = setInterval(scanQRCode, 500) // 每500ms扫描一次
-}
-
-// 切换摄像头
-const switchCamera = () => {
-  isFrontCamera.value = !isFrontCamera.value
-  if (scanInterval.value) {
-    clearInterval(scanInterval.value)
-  }
-  startCamera()
 }
 
 // 组件挂载时启动摄像头
@@ -85,13 +84,6 @@ onUnmounted(() => {
   <div class="camera-container">
     <div class="video-container">
       <video ref="videoRef" autoplay playsinline></video>
-      <canvas ref="canvasRef" style="display: none"></canvas>
-    </div>
-
-    <div class="button-container">
-      <button class="switch-btn" @click="switchCamera">
-        {{ isFrontCamera ? '切换到后置摄像头' : '切换到前置摄像头' }}
-      </button>
     </div>
 
     <div v-if="qrResult" class="qr-result">
@@ -115,27 +107,6 @@ onUnmounted(() => {
 video {
   width: 100%;
   border-radius: 8px;
-}
-
-.button-container {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-
-.switch-btn {
-  padding: 10px 20px;
-  font-size: 16px;
-  background-color: #2196F3;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  margin: 10px 0;
-}
-
-.switch-btn:hover {
-  background-color: #1976D2;
 }
 
 .qr-result {
