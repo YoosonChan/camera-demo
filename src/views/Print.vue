@@ -28,7 +28,7 @@ const handlePrint = () => {
         position: fixed;
         top: 50%;
         left: 50%;
-        transform: translate(-50%, -50%) rotate(-90deg);
+        transform: translate(-50%, -50%) rotate(-90deg) scale(1) !important;
         width: 30mm;
         height: 40mm;
       }
@@ -44,7 +44,7 @@ const handlePrint = () => {
   <div class="print-container">
     <div class="settings-panel">
       <div class="setting-item">
-        <label>二维码内容：</label>
+        <label>二维码内容:</label>
         <input v-model="qrValue" placeholder="请输入二维码内容" class="qr-input" />
       </div>
       <button @click="handlePrint" class="print-button">打印</button>
@@ -88,6 +88,12 @@ const handlePrint = () => {
 
 .print-button:hover {
   background-color: #45a049;
+}
+
+.print-area {
+  width: 30mm;
+  margin: 0 auto;
+  transform: translate(0, 100%) scale(2);
 }
 
 .print-area>>>canvas {
