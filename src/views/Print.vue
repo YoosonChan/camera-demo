@@ -6,8 +6,6 @@ const qrValue = ref('') // 初始值设为空字符串
 const printArea = ref<HTMLElement | null>(null)
 
 const handlePrint = () => {
-  if (!printArea.value) return
-
   try {
     // 创建一个隐藏的 iframe
     const iframe = document.createElement('iframe')
@@ -16,7 +14,7 @@ const handlePrint = () => {
     // 写入打印内容
     const doc = iframe.contentWindow?.document
     if (!doc) return
-    const qrcodeContainer = doc.createElement('div')
+    const qrcodeContainer = document.createElement('div')
     render(h(QrcodeVue, { value: qrValue.value, size: 300, level: 'H', renderAs: 'svg' }), qrcodeContainer)
     console.log(qrcodeContainer.innerHTML);
 
